@@ -64,7 +64,7 @@ void Interpolate::processPoints(
     return;
   }
 
-  if (std::string(velodyne_points_ex_sub_->get_topic_name()) == "/sensing/lidar/top/mirror_cropped") {
+  if (std::string(velodyne_points_ex_sub_->get_topic_name()) == "/sensing/lidar/top/mirror_cropped/pointcloud_ex") {
     unsigned long long real_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     unsigned long long stamp = rclcpp::Time(points_xyziradt_msg->header.stamp).nanoseconds() / 1000;
     std::ofstream f0(std::string(std::getenv("HOME")) + "/.ros/eval_log/interpolate.log", std::ios::app);
