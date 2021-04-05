@@ -14,12 +14,16 @@
 
 #include <velodyne_pointcloud/func.h>
 
+#include <iostream>
+#include <fstream>
+#include <chrono>
+
 namespace velodyne_pointcloud
 {
 /** @brief Constructor. */
 Interpolate::Interpolate(const rclcpp::NodeOptions & options)
 : Node("velodyne_interpolate_node", options),
- tf2_listener_(tf2_buffer_), 
+ tf2_listener_(tf2_buffer_),
  base_link_frame_("base_link")
 {
   // advertise
@@ -60,6 +64,14 @@ void Interpolate::processPoints(
     return;
   }
 
+  if (std::string(velodyne_points_ex_sub_->get_topic_name()) == "/sensing/lidar/top/mirror_cropped") {
+    unsigned long long real_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    unsigned long long stamp = rclcpp::Time(points_xyziradt_msg->header.stamp).nanoseconds() / 1000;
+    std::ofstream f0(std::string(std::getenv("HOME")) + "/.ros/eval_log/interpolate.log", std::ios::app);
+    f0 << "/sensing/lidar/top/velodyne_fix_distortion" << " start " << stamp << " " << real_time << std::endl;
+    f0.close();
+  }
+
   pcl::PointCloud<velodyne_pointcloud::PointXYZIRADT>::Ptr points_xyziradt(
     new pcl::PointCloud<velodyne_pointcloud::PointXYZIRADT>);
   pcl::fromROSMsg(*points_xyziradt_msg, *points_xyziradt);
@@ -80,6 +92,17 @@ void Interpolate::processPoints(
     sensor_msgs::msg::PointCloud2 ros_pc_msg;
     pcl::toROSMsg(*interpolate_points_xyziradt, ros_pc_msg);
     velodyne_points_interpolate_ex_pub_->publish(ros_pc_msg);
+    if (std::string(velodyne_points_ex_sub_->get_topic_name()) == "/sensing/lidar/top/mirror_cropped/pointcloud_ex") {
+      unsigned long long real_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      unsigned long long stamp = rclcpp::Time(ros_pc_msg.header.stamp).nanoseconds() / 1000;
+      std::ofstream f0(std::string(std::getenv("HOME")) + "/.ros/eval_log/interpolate.log", std::ios::app);
+      f0 << "/sensing/lidar/top/velodyne_fix_distortion" << " end " << stamp << " " << real_time << std::endl;
+      f0.close();
+
+      std::ofstream f1(std::string(std::getenv("HOME")) + "/.ros/eval_log/interpolate_sub.log", std::ios::app);
+      f1 << "/sensing/lidar/top/velodyne_fix_distortion" << " " << rclcpp::Time(points_xyziradt_msg->header.stamp).nanoseconds() / 1000 << " " << stamp << std::endl;
+      f1.close();
+    }
   }
 }
 

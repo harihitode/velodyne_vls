@@ -22,6 +22,10 @@
 
 #include <velodyne_pointcloud/func.h>
 
+#include <iostream>
+#include <fstream>
+#include <chrono>
+
 namespace velodyne_pointcloud
 {
 
@@ -200,6 +204,14 @@ rcl_interfaces::msg::SetParametersResult Convert::paramCallback(const std::vecto
 /** @brief Callback for raw scan messages. */
 void Convert::processScan(const velodyne_msgs::msg::VelodyneScan::SharedPtr scanMsg)
 {
+  if (std::string(velodyne_scan_->get_topic_name()) == "/sensing/lidar/top/velodyne_packets") {
+    unsigned long long real_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    unsigned long long stamp = rclcpp::Time(scanMsg->header.stamp).nanoseconds() / 1000;
+    std::ofstream f0(std::string(std::getenv("HOME")) + "/.ros/eval_log/convert.log", std::ios::app);
+    f0 << "/sensing/lidar/top/velodyne_convert" << " start " << stamp << " " << real_time << std::endl;
+    f0.close();
+  }
+
   velodyne_pointcloud::PointcloudXYZIRADT scan_points_xyziradt;
   if (
     velodyne_points_pub_->get_subscription_count() > 0 ||
@@ -257,16 +269,26 @@ void Convert::processScan(const velodyne_msgs::msg::VelodyneScan::SharedPtr scan
     velodyne_points_combined_ex_pub_->get_subscription_count() > 0) {
     valid_points_xyziradt =
       extractValidPoints(scan_points_xyziradt.pc, data_->getMinRange(), data_->getMaxRange());
+    sensor_msgs::msg::PointCloud2 ros_pc_msg;
     if (velodyne_points_pub_->get_subscription_count() > 0) {
       const auto valid_points_xyzir = convert(valid_points_xyziradt);
-      sensor_msgs::msg::PointCloud2 ros_pc_msg;
       pcl::toROSMsg(*valid_points_xyzir, ros_pc_msg);
       velodyne_points_pub_->publish(ros_pc_msg);
     }
     if (velodyne_points_ex_pub_->get_subscription_count() > 0) {
-      sensor_msgs::msg::PointCloud2 ros_pc_msg;
       pcl::toROSMsg(*valid_points_xyziradt, ros_pc_msg);
       velodyne_points_ex_pub_->publish(ros_pc_msg);
+    }
+    if (std::string(velodyne_scan_->get_topic_name()) == "/sensing/lidar/top/velodyne_packets") {
+      unsigned long long real_time = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      unsigned long long stamp = rclcpp::Time(ros_pc_msg.header.stamp).nanoseconds() / 1000;
+      std::ofstream f0(std::string(std::getenv("HOME")) + "/.ros/eval_log/convert.log", std::ios::app);
+      f0 << "/sensing/lidar/top/velodyne_convert" << " end " << stamp << " " << real_time << std::endl;
+      f0.close();
+
+      std::ofstream f1(std::string(std::getenv("HOME")) + "/.ros/eval_log/convert_sub.log", std::ios::app);
+      f1 << "/sensing/lidar/top/velodyne_convert" << " " << rclcpp::Time(scanMsg->header.stamp).nanoseconds() / 1000 << " " << stamp << std::endl;
+      f1.close();
     }
   }
 
